@@ -1,0 +1,58 @@
+USE [ACADEMY]
+
+-- 1. Print numbers of buildings if the total financing fund of the departments located in them exceeds 100,000.
+SELECT DISTINCT Building
+FROM Departments
+WHERE (SELECT SUM(Financing) FROM Departments WHERE Building = d.Building) > 100000;
+
+-- 2. Print names of the 5th year groups of the Software Development department that have more than 10 double periods in the first week.
+SELECT Name
+FROM Groups
+WHERE Year = 5
+    AND DepartmentId = (SELECT Id FROM Departments WHERE Name = 'Software Development')
+    AND Id IN (SELECT GroupId FROM GroupsLectures WHERE LectureId IN (SELECT Id FROM Lectures WHERE DATEPART(WEEK, LectureDate) = 1 AND DATEPART(DW, LectureDate) IN (6, 7)) GROUP BY GroupId HAVING COUNT(*) > 10);
+
+-- 3. Print names of the groups whose rating is greater than the rating of the "D221" group.
+SELECT Name
+FROM Groups
+WHERE (SELECT AVG(Rating) FROM Students WHERE Id IN (SELECT StudentId FROM GroupsStudents WHERE GroupId = g.Id)) > (SELECT AVG(Rating) FROM Students WHERE Id IN (SELECT StudentId FROM GroupsStudents WHERE GroupId = (SELECT Id FROM Groups WHERE Name = 'D221')));
+
+-- 4. Print full names of teachers whose wage rate is higher than the average wage rate of professors.
+SELECT CONCAT(Name, ' ', Surname) AS TeacherFullName
+FROM Teachers
+WHERE Salary > (SELECT AVG(Salary) FROM Teachers WHERE IsProfessor = 1);
+
+-- 5. Print names of groups with more than one curator.
+SELECT Name
+FROM Groups
+WHERE (SELECT COUNT(*) FROM GroupsCurators WHERE GroupId = g.Id) > 1;
+
+-- 6. Print names of the groups whose rating is less than the minimum rating of the 5th year groups.
+SELECT Name
+FROM Groups
+WHERE (SELECT AVG(Rating) FROM Students WHERE Id IN (SELECT StudentId FROM GroupsStudents WHERE GroupId = g.Id)) < (SELECT MIN(AVG(Rating)) FROM Students WHERE Id IN (SELECT StudentId FROM GroupsStudents WHERE GroupId IN (SELECT Id FROM Groups WHERE Year = 5)));
+
+-- 7. Print names of the faculties with total financing fund of the departments greater than the total financing fund of the Computer Science department.
+SELECT Name
+FROM Faculties
+WHERE (SELECT SUM(Financing) FROM Departments WHERE FacultyId = f.Id) > (SELECT SUM(Financing) FROM Departments WHERE Name = 'Computer Science');
+
+-- 8. Print names of the subjects and full names of the teachers who deliver the greatest number of lectures in them.
+SELECT 
+    (SELECT Name FROM Subjects WHERE Id = l.SubjectId) AS SubjectName,
+    (SELECT CONCAT(Name, ' ', Surname) FROM Teachers WHERE Id = l.TeacherId) AS TeacherFullName
+FROM Lectures l
+GROUP BY l.SubjectId, l.TeacherId
+ORDER BY COUNT(*) DESC
+LIMIT 1;
+
+-- 9. Print name of the subject in which the least number of lectures are delivered.
+SELECT TOP 1 [Name]
+FROM Subjects
+WHERE Id = (SELECT TOP 1 SubjectId FROM Lectures GROUP BY SubjectId ORDER BY COUNT(*) ASC);
+
+-- 10. Print number of students and subjects taught at the Software Development department.
+SELECT 
+    (SELECT COUNT(*) FROM Students WHERE Id IN (SELECT StudentId FROM GroupsStudents WHERE GroupId IN (SELECT Id FROM Groups WHERE DepartmentId = (SELECT Id FROM Departments WHERE Name = 'Software Development')))) AS NumberOfStudents,
+    (SELECT COUNT(*) FROM Subjects WHERE Id IN (SELECT DISTINCT SubjectId FROM Lectures WHERE TeacherId IN (SELECT Id FROM Teachers WHERE Id IN (SELECT DISTINCT TeacherId FROM Lectures WHERE SubjectId = s.Id) AND Id IN (SELECT TeacherId FROM Lectures WHERE SubjectId = s.Id))))) AS NumberOfSubjects
+FROM Subjects s;
